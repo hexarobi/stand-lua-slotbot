@@ -1,0 +1,2 @@
+# stand-lua-slotbot
+SlotBot
