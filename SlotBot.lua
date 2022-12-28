@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.4"
+local SCRIPT_VERSION = "0.6"
 
 ---
 --- Auto-Updater Lib Install
@@ -51,6 +51,49 @@ util.require_natives(1663599433)
 local state = {}
 local menus = {}
 
+local slot_machine_positions = {
+    {
+        seated={x=1102.2573, y=232.43211, z=-50.0909},
+        standing={x=1102.6787, y=232.73073, z=-49.84076, h=90},
+    },
+    {
+        seated={x=1112.4808, y=234.83745, z=-50.0909},
+        standing={x=1112.0146, y=235.13573, z=-49.84075, h=-90},
+    },
+    {
+        seated={x=1110.1028, y=235.05864, z=-50.0909},
+        standing={x=1110.5834, y=235.30466, z=-49.840767, h=90},
+    },
+    {
+        seated={x=1111.9581, y=237.83565, z=-50.0909},
+        standing={x=1112.1866, y=237.27339, z=-49.840763, h=0},
+    },
+    {
+        seated={x=1113.66, y=238.81334, z=-50.0909},
+        standing={x=1113.8134, y=238.09317, z=-49.840786, h=0}
+    },
+    {
+        seated={x=1139.4238, y=250.89787, z=-51.2909},
+        standing={x=1139.8647, y=250.2418, z=-51.035732, h=70}
+    },
+    {
+        seated={x=1130.6184, y=251.2604, z=-51.2909},
+        standing={x=1130.7328, y=251.68321, z=-51.035774, h=180}
+    },
+    {
+        seated={x=1137.2375, y=253.092, z=-51.2909},
+        standing={x=1137.3026, y=253.69514, z=-51.03577, h=180}
+    },
+    {
+        seated={x=1103.4133, y=230.6071, z=-50.0909},
+        standing={x=1102.95, y=230.27, z=-49.84, h=-90},
+    },
+    {
+        seated={x=1118.7598, y=230.03072, z=-50.0909},
+        standing={x=1119.2648, y=230.20291, z=-49.840748, h=100}
+    },
+}
+
 ---
 --- Utils
 ---
@@ -71,7 +114,7 @@ local function disp_time(time)
     local hours = math.floor((time % 86400)/3600)
     local minutes = math.floor((time % 3600)/60)
     --local seconds = math.floor(time % 60)
-    return string.format("%2d hours and %2d minutes",hours,minutes)
+    return string.format("%d hours and %d minutes",hours,minutes)
 end
 
 local function is_player_within_dimensions(dimensions, pid)
@@ -98,6 +141,49 @@ local function is_player_in_casino(pid)
             z=-42.28554,
         },
     }, pid)
+end
+
+local function is_player_near_slot_machine(slot_machine_position, sensitivty)
+    if sensitivty == nil then sensitivty = 1 end
+    return is_player_within_dimensions({
+        min={
+            x=slot_machine_position.x - sensitivty,
+            y=slot_machine_position.y - sensitivty,
+            z=slot_machine_position.z - sensitivty,
+        },
+        max={
+            x=slot_machine_position.x + sensitivty,
+            y=slot_machine_position.y + sensitivty,
+            z=slot_machine_position.z + sensitivty,
+        },
+    }, players.user())
+end
+
+local function is_player_at_any_slot_machine()
+    for _, slot_machine_position in pairs(slot_machine_positions) do
+        if is_player_near_slot_machine(slot_machine_position.seated, 0.3) then
+            return true
+        end
+    end
+    return false
+end
+
+local function find_free_slot_machine()
+    for _, slot_machine_position in pairs(slot_machine_positions) do
+        local pos = slot_machine_position.standing
+        ENTITY.SET_ENTITY_COORDS(players.user_ped(), pos.x, pos.y, pos.z)
+        ENTITY.SET_ENTITY_HEADING(players.user_ped(), pos.h)
+        util.yield(100)
+        PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 51, 1)
+        util.yield(100)
+        PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 201, 1)
+        util.yield(5000)
+        if is_player_near_slot_machine(slot_machine_position.seated, 0.3) then
+            util.toast("Free machine found!")
+            return true
+        end
+    end
+    return false
 end
 
 ---
@@ -162,13 +248,12 @@ local function get_safe_playtime()
     end
 end
 
-local function is_safe_to_spin()
+local function is_num_daily_wins_exceeded()
     local num_wins = get_num_wins_past_day()
     if num_wins >= 19 then
-        util.toast("You've already won your daily limit. Try again in "..get_safe_playtime())
-        return false
+        return true
     end
-    return true
+    return false
 end
 
 local function refresh_daily_winnings()
@@ -189,19 +274,36 @@ local function exit_slots()
     menus.auto_spin.value = false
 end
 
+local function is_slots_ready_for_spin()
+
+    if not is_player_in_casino(players.user()) then
+        util.toast("You must be in the casino and seated at a high-payout slot machine to initiate auto-spin")
+        exit_slots()
+        return false
+    end
+
+    if not is_player_at_any_slot_machine() then
+        util.toast("You must be seated at a high-payout slot machine (`Diamond Miner` or `Diety of the Sun`) to initiate auto-spin")
+        exit_slots()
+        return false
+    end
+
+    if is_num_daily_wins_exceeded() then
+        util.toast("You've won your daily limit. Try again in "..get_safe_playtime())
+        exit_slots()
+        return false
+    end
+
+    return true
+end
+
 ---
 --- Spin Slots
 ---
 
 local function spin_slots()
-    if not is_player_in_casino(players.user()) then
-        util.toast("You must be in the casino and seated at a high-payout slot machine to initiate auto-spin")
-        exit_slots()
-        return
-    end
 
-    if not is_safe_to_spin() then
-        exit_slots()
+    if not is_slots_ready_for_spin() then
         return
     end
 
@@ -214,13 +316,14 @@ local function spin_slots()
         util.toast("Spinning slots to lose")
         menu.trigger_commands("rigslotmachines loss")
     end
+    util.yield(1000)
 
     -- Bet max
     PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 204, 1)
-    util.yield(100)
+    util.yield(500)
     -- Spin
     PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 201, 1)
-    util.yield(100)
+    util.yield(1000)
 
     menu.trigger_commands("rigslotmachines off")
 
@@ -236,8 +339,20 @@ local function bandit_tick()
     if state.auto_spin then
         local current_time = util.current_time_millis()
         if state.next_update_time == nil or current_time > state.next_update_time then
-            spin_slots()
-            state.next_update_time = util.current_time_millis() + 6000 + math.random(1,1000)
+            local delay_time = 8000
+
+            if is_num_daily_wins_exceeded() then
+                util.toast("You've won your daily limit. Try again in "..get_safe_playtime())
+            elseif not is_player_in_casino(players.user()) then
+                menu.trigger_commands("casinotp"..players.get_name(players.user()))
+                delay_time = 30000
+            elseif not is_player_at_any_slot_machine() then
+                find_free_slot_machine()
+            else
+                spin_slots()
+            end
+
+            state.next_update_time = util.current_time_millis() + delay_time + math.random(1,2000)
         end
     end
     return true
@@ -255,8 +370,24 @@ menu.action(menu.my_root(), "Teleport to Casino", {}, "", function()
     menu.trigger_commands("casinotp"..players.get_name(players.user()))
 end)
 
+menu.action(menu.my_root(), "Find free slot machine", {}, "", function()
+    find_free_slot_machine()
+end)
+
 menus.daily_winnings = menu.readonly(menu.my_root(), "Daily Winnings")
 refresh_daily_winnings()
+
+menus.script_meta = menu.list(menu.my_root(), "Script Meta")
+menu.divider(menus.script_meta, "SlotBot")
+menu.readonly(menus.script_meta, "Version", SCRIPT_VERSION)
+menu.action(menus.script_meta, "Check for Update", {}, "The script will automatically check for updates at most daily, but you can manually check using this option anytime.", function()
+    auto_update_config.check_interval = 0
+    if auto_updater.run_auto_update(auto_update_config) then
+        util.toast("No updates found")
+    end
+end)
+menu.hyperlink(menus.script_meta, "Github Source", "https://github.com/hexarobi/stand-lua-slotbot", "View source files on Github")
+menu.hyperlink(menus.script_meta, "Discord", "https://discord.gg/2u5HbHPB9y", "Open Discord Server")
 
 ---
 --- Tick Handler
