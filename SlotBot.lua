@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.3"
+local SCRIPT_VERSION = "0.4"
 
 ---
 --- Auto-Updater Lib Install
@@ -72,6 +72,32 @@ local function disp_time(time)
     local minutes = math.floor((time % 3600)/60)
     --local seconds = math.floor(time % 60)
     return string.format("%2d hours and %2d minutes",hours,minutes)
+end
+
+local function is_player_within_dimensions(dimensions, pid)
+    if pid == nil then pid = players.user_ped() end
+    local target_ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
+    local player_pos = ENTITY.GET_ENTITY_COORDS(target_ped)
+    return (
+            player_pos.x > dimensions.min.x and player_pos.x < dimensions.max.x
+                    and player_pos.y > dimensions.min.y and player_pos.y < dimensions.max.y
+                    and player_pos.z > dimensions.min.z and player_pos.z < dimensions.max.z
+    )
+end
+
+local function is_player_in_casino(pid)
+    return is_player_within_dimensions({
+        min={
+            x=1073.9967,
+            y=189.58717,
+            z=-53.838943,
+        },
+        max={
+            x=1166.935,
+            y=284.88977,
+            z=-42.28554,
+        },
+    }, pid)
 end
 
 ---
@@ -168,6 +194,12 @@ end
 ---
 
 local function spin_slots()
+    if not is_player_in_casino(players.user()) then
+        util.toast("You must be in the casino and seated at a high-payout slot machine to initiate auto-spin")
+        exit_slots()
+        return
+    end
+
     if not is_safe_to_spin() then
         exit_slots()
         return
@@ -215,12 +247,12 @@ end
 --- Menus
 ---
 
-menu.action(menu.my_root(), "Teleport to Casino", {}, "", function()
-    menu.trigger_commands("casinotp"..players.get_name(players.user()))
-end)
-
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "You should be seated at a high-payout casino slot machine (either 'Diamond Miner' or 'Empire of the Sun') before engaging this feature. Once enabled, it will auto-spin the slots, alternating between winning and losing to avoid detection. Winning over $50mil per day is risky, so script will auto-cutoff at $47.5mil. Come back tomorrow and run the script again for more.", function(on)
     state.auto_spin = on
+end)
+
+menu.action(menu.my_root(), "Teleport to Casino", {}, "", function()
+    menu.trigger_commands("casinotp"..players.get_name(players.user()))
 end)
 
 menus.daily_winnings = menu.readonly(menu.my_root(), "Daily Winnings")
