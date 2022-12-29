@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.8"
+local SCRIPT_VERSION = "0.9"
 
 ---
 --- Auto-Updater Lib Install
@@ -50,15 +50,19 @@ util.require_natives(1663599433)
 
 local config = {
     debug_mode = false,
-    delay_between_button_press = 1000,
+    test_mode = false,
+    delay_between_button_press = 500,
     delay_sitting_at_slot_machine = 5000,
-    delay_between_spins = 7000,
+    delay_between_spins = 3000,
     delay_between_spins_additional_random = 1000,
     delay_after_teleport_to_casino = 30000,
-    max_wins = 19,
+    max_daily_winnings = 47500000,
 }
 local state = {}
 local menus = {}
+local commands = {
+    rigslotmachines=menu.ref_by_path("Online>Quick Progress>Casino>Slot Machines Outcome")
+}
 
 local slot_machine_positions = {
     {
@@ -107,9 +111,53 @@ local slot_machine_positions = {
 --- Utils
 ---
 
+-- From HeistControl
+local function IS_MPPLY(Stat)
+    local Stats = {
+        "MP_PLAYING_TIME",
+        "MP_NGDLCPSTAT_INT0",
+    }
+
+    for i = 1, #Stats do
+        if Stat == Stats[i] then
+            return true
+        end
+    end
+
+    if string.find(Stat, "MPPLY_") then
+        return true
+    else
+        return false
+    end
+end
+
+local function ADD_MP_INDEX(Stat)
+    if not IS_MPPLY(Stat) then
+        Stat = "MP" .. util.get_char_slot() .. "_" .. Stat
+    end
+    return Stat
+end
+
+local function STAT_GET_INT(Stat)
+    local IntPTR = memory.alloc_int()
+    STATS.STAT_GET_INT(util.joaat(ADD_MP_INDEX(Stat)), IntPTR, -1)
+    return memory.read_int(IntPTR)
+end
+
+local function get_chip_count()
+    return STAT_GET_INT("CASINO_CHIPS")
+end
+
 local function debug_log(message)
     if config.debug_mode then
         util.log("[SlotBot] "..message)
+    end
+end
+
+local function press_button(button_id)
+    for i = 1,10 do
+        PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, button_id, 1)
+        util.yield()
     end
 end
 
@@ -122,6 +170,17 @@ local function count_wins(spin_log)
         end
     end
     return num_wins
+end
+
+local function calculate_daily_winnings(spin_log)
+    local daily_winnings = 0
+    local target_time = util.current_time_millis() - 86400000
+    for _, spin in pairs(spin_log) do
+        if spin.is_rigged and spin.time > target_time then
+            daily_winnings = daily_winnings + spin.winnings
+        end
+    end
+    return daily_winnings
 end
 
 local function disp_time(time)
@@ -184,7 +243,8 @@ local function is_player_at_any_slot_machine()
 end
 
 local function find_free_slot_machine()
-    debug_log("Finding free slot machine")
+    util.toast("Finding available slot machine")
+    debug_log("Finding available slot machine")
     for _, slot_machine_position in pairs(slot_machine_positions) do
         if not state.auto_spin then return end
         local pos = slot_machine_position.standing
@@ -201,8 +261,8 @@ local function find_free_slot_machine()
         util.yield(config.delay_sitting_at_slot_machine)
 
         if is_player_near_slot_machine(slot_machine_position.seated, 0.3) then
-            debug_log("Found free slot machine")
-            util.toast("Free machine found!")
+            debug_log("Found available slot machine")
+            util.toast("Slot machine found")
             return true
         end
     end
@@ -239,15 +299,16 @@ local function load_spin_log()
     end
 end
 
-local function log_spin()
+local function log_spin(is_rigged, spin_winnings)
     debug_log("Logging spin")
     local spin_log = load_spin_log()
     local num_wins = count_wins(spin_log)
     -- Reset spin log if no daily wins. Avoid growing too large.
     if num_wins == 0 and #spin_log > 0 then spin_log = {} end
     table.insert(spin_log, {
-        is_rigged=state.is_rigged,
+        is_rigged=is_rigged,
         time=util.current_time_millis(),
+        winnings=spin_winnings,
     })
     save_spin_log(spin_log)
 end
@@ -256,10 +317,15 @@ end
 --- Functions
 ---
 
-local function get_num_wins_past_day()
+local function get_daily_winnings()
     local spin_log = load_spin_log()
-    return count_wins(spin_log)
+    return calculate_daily_winnings(spin_log)
 end
+
+--local function get_num_wins_past_day()
+--    local spin_log = load_spin_log()
+--    return count_wins(spin_log)
+--end
 
 local function get_safe_playtime()
     local spin_log = load_spin_log()
@@ -273,15 +339,11 @@ local function get_safe_playtime()
 end
 
 local function is_num_daily_wins_exceeded()
-    local num_wins = get_num_wins_past_day()
-    if num_wins >= config.max_wins then
-        return true
-    end
-    return false
+    return get_daily_winnings() >= config.max_daily_winnings
 end
 
 local function refresh_daily_winnings()
-    menus.daily_winnings.value = "$" .. (get_num_wins_past_day() * 2.5) .. "mil"
+    menus.daily_winnings.value = "$" .. get_daily_winnings()
     debug_log("Refreshed daily winning to "..menus.daily_winnings.value)
 end
 
@@ -332,8 +394,9 @@ local function is_slots_ready_for_spin()
     return true
 end
 
-local function get_chips()
+local function acquire_chips()
     debug_log("Getting chips")
+    util.toast("Acquiring chips from Cashier")
 
     local cashier_position = {x=1116.0953, y=219.82039, z=-49.43512, h=-90}
     ENTITY.SET_ENTITY_COORDS(players.user_ped(), cashier_position.x, cashier_position.y, cashier_position.z)
@@ -364,8 +427,18 @@ local function get_chips()
     state.has_chips = true
 end
 
+local function stop_auto_spin()
+    debug_log("Stopping auto spin")
+    util.toast("Auto-Spin complete.")
+    menus.auto_spin.value = false
+end
+
 local function cash_out_chips()
-    if state.has_chips == false then return end
+    if get_chip_count() <= 10000 then
+        debug_log("Too few chips, skipping cash out")
+        stop_auto_spin()
+        return
+    end
     debug_log("Cashing out chips")
 
     -- Esc to exit
@@ -411,7 +484,7 @@ local function cash_out_chips()
     util.yield(config.delay_between_button_press)
 
     state.has_chips = false
-    menus.auto_spin.value = false
+    stop_auto_spin()
 end
 
 ---
@@ -430,28 +503,46 @@ local function spin_slots()
     if state.is_rigged then
         debug_log("Setting slots to win")
         util.toast("Spinning slots to win")
-        menu.trigger_commands("rigslotmachines jackpot")
+        if config.test_mode then
+            menu.trigger_command(commands.rigslotmachines, "smallwin")
+        else
+            menu.trigger_command(commands.rigslotmachines, "jackpot")
+        end
         state.has_chips = true
     else
         debug_log("Setting slots to lose")
         util.toast("Spinning slots to lose")
-        menu.trigger_commands("rigslotmachines loss")
+        menu.trigger_command(commands.rigslotmachines, "loss")
     end
     util.yield(config.delay_between_button_press)
 
-    -- Bet max
-    debug_log("Betting max")
-    PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 204, 1)
+    local previous_chip_count = get_chip_count()
+
+    -- Set Bet Amount
+    debug_log("Setting bet amount")
+    if state.is_rigged then
+        press_button(204)   -- TAB for Max Bet
+    else
+        press_button(204)   -- TAB for Max Bet
+        util.yield(config.delay_between_button_press)
+        press_button(203)   -- Space to cycle to lowest bet
+    end
     util.yield(config.delay_between_button_press)
+
     -- Spin
     debug_log("Spinning slot")
-    PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 201, 1)
+    press_button(201)
     util.yield(config.delay_between_button_press)
 
     debug_log("Setting slots to unrigged")
-    menu.trigger_commands("rigslotmachines off")
+    menu.trigger_command(commands.rigslotmachines, "off")
 
-    log_spin()
+    util.yield(config.delay_between_spins - 500)
+
+    local spin_winnings = get_chip_count() - previous_chip_count
+    debug_log("Chip change "..tostring(spin_winnings))
+
+    log_spin(state.is_rigged, spin_winnings)
     refresh_daily_winnings()
 end
 
@@ -468,18 +559,22 @@ local function bandit_tick()
             if is_num_daily_wins_exceeded() then
                 debug_log("Daily win limit exceeded")
                 util.toast("You've won your daily limit. Try again in "..get_safe_playtime())
-                cash_out_chips()
+                if is_player_at_any_slot_machine() then
+                    exit_slots()
+                else
+                    cash_out_chips()
+                end
             elseif not is_player_in_casino(players.user()) then
                 debug_log("Teleporting to Casino")
                 menu.trigger_commands("casinotp"..players.get_name(players.user()))
                 delay_time = config.delay_after_teleport_to_casino
-            elseif state.has_chips ~= true then
-                get_chips()
+            elseif state.has_chips ~= true and get_chip_count() < 10000 then
+                acquire_chips()
             elseif not is_player_at_any_slot_machine() then
                 find_free_slot_machine()
             else
                 spin_slots()
-                delay_time = config.delay_between_spins + math.random(1,config.delay_between_spins_additional_random)
+                delay_time = config.delay_between_spins -- + math.random(1,config.delay_between_spins_additional_random)
             end
 
             state.next_update_time = util.current_time_millis() + delay_time
@@ -520,7 +615,7 @@ menu.action(menus.actions, "Cash Out Chips", {}, "", function()
     cash_out_chips()
 end)
 menu.action(menus.actions, "Check Chips", {}, "", function()
-    util.toast(STATS.PLAYSTATS_CASINO_CHIP(entities.handle_to_pointer(players.user_ped())))
+    util.toast(get_chip_count())
 end)
 
 menus.script_meta = menu.list(menu.my_root(), "Script Meta")
