@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.9"
+local SCRIPT_VERSION = "0.10"
 
 ---
 --- Auto-Updater Lib Install
@@ -574,7 +574,11 @@ local function bandit_tick()
                 find_free_slot_machine()
             else
                 spin_slots()
-                delay_time = config.delay_between_spins -- + math.random(1,config.delay_between_spins_additional_random)
+                delay_time = config.delay_between_spins
+                if state.is_rigged then
+                    -- Extend time for celebration animation
+                    delay_time = delay_time + 3000
+                end
             end
 
             state.next_update_time = util.current_time_millis() + delay_time
