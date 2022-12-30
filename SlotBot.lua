@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.10"
+local SCRIPT_VERSION = "0.11"
 
 ---
 --- Auto-Updater Lib Install
@@ -56,7 +56,7 @@ local config = {
     delay_between_spins = 3000,
     delay_between_spins_additional_random = 1000,
     delay_after_teleport_to_casino = 30000,
-    max_daily_winnings = 47500000,
+    max_daily_winnings = 45000000,
 }
 local state = {}
 local menus = {}
@@ -159,6 +159,17 @@ local function press_button(button_id)
         PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, button_id, 1)
         util.yield()
     end
+end
+
+local function format_large_number(number)
+    local i, j, minus, int, fraction = tostring(number):find('([-]?)(%d+)([.]?%d*)')
+
+    -- reverse the int-string and append a comma to all blocks of 3 digits
+    int = int:reverse():gsub("(%d%d%d)", "%1,")
+
+    -- reverse the int-string back remove an optional comma and put the
+    -- optional minus and fractional part back
+    return minus .. int:reverse():gsub("^,", "") .. fraction
 end
 
 local function count_wins(spin_log)
@@ -327,14 +338,24 @@ end
 --    return count_wins(spin_log)
 --end
 
-local function get_safe_playtime()
+local function find_first_spin()
+    local cutoff_time = util.current_time_millis() - 86400000
     local spin_log = load_spin_log()
-    local first_spin = spin_log[1]
-    if first_spin ~= nil then
-        local countdown = first_spin.time - util.current_time_millis() + 86400000
-        if countdown > 0 then
-            return disp_time(countdown / 1000)
+    for _, spin_log_item in pairs(spin_log) do
+        if spin_log_item.time > cutoff_time and spin_log_item.is_rigged then
+            return spin_log_item
         end
+    end
+end
+
+local function get_safe_playtime()
+    local first_spin = find_first_spin()
+    if first_spin == nil then return "00:00" end
+    local countdown = first_spin.time - util.current_time_millis() + 86400000
+    if countdown > 0 then
+        return disp_time(countdown / 1000)
+    else
+        return "00:00"
     end
 end
 
@@ -343,7 +364,7 @@ local function is_num_daily_wins_exceeded()
 end
 
 local function refresh_daily_winnings()
-    menus.daily_winnings.value = "$" .. get_daily_winnings()
+    menus.daily_winnings.value = "$" .. format_large_number(get_daily_winnings())
     debug_log("Refreshed daily winning to "..menus.daily_winnings.value)
 end
 
@@ -608,6 +629,10 @@ refresh_daily_winnings()
 menus.next_spin_time = menu.readonly(menu.my_root(), "Time Until Next Spin")
 refresh_next_spin_time()
 
+---
+--- Actions Menu
+---
+
 menus.actions = menu.list(menu.my_root(), "Actions", {}, "Actions executed by the auto-spin but available as optional stand-alone actions")
 menu.action(menus.actions, "Teleport to Casino", {}, "", function()
     menu.trigger_commands("casinotp"..players.get_name(players.user()))
@@ -621,6 +646,37 @@ end)
 menu.action(menus.actions, "Check Chips", {}, "", function()
     util.toast(get_chip_count())
 end)
+
+---
+--- Options Menu
+---
+
+local menu_options = menu.list(menu.my_root(), "Options")
+menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in a single day can be risky.", 1, 100, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
+    config.max_daily_winnings = value * 1000000
+end)
+local spin_log_menu_items = {}
+menus.spin_log = menu.list(menu_options, "View Spin Log", {}, "View log of previous spins", function()
+    for _, spin_log_menu_item in pairs(spin_log_menu_items) do
+        menu.delete(spin_log_menu_item)
+    end
+    local spin_log = load_spin_log()
+    for index, spin_log_item in pairs(spin_log) do
+        local time_ago = util.current_time_millis() - spin_log_item.time
+        local item = string.format("Spin #%d [%s] $%s",
+                index, tostring(disp_time(time_ago / 1000)), spin_log_item.winnings)
+        local spin_log_item_menu = menu.readonly(menus.spin_log, item)
+        --menu.readonly(spin_log_item_menu, "Time Ago", tostring(disp_time(time_ago / 1000)))
+        ----menu.readonly(spin_log_item_menu, "Is Rigged", tostring(spin_log_item.is_rigged))
+        --menu.readonly(spin_log_item_menu, "Winnings", tostring(spin_log_item.winnings))
+        table.insert(spin_log_menu_items, spin_log_item_menu)
+    end
+end)
+
+
+---
+--- Meta Menu
+---
 
 menus.script_meta = menu.list(menu.my_root(), "Script Meta")
 menu.divider(menus.script_meta, "SlotBot")
