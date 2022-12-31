@@ -5,7 +5,7 @@ Automatic spinning of casino slot machine in GTA5. Check the auto-spin box, go A
 Automates the following steps:
 * Teleport to Casino if not already in Casino
 * Acquire chips from Cashier if needed
-* Finds a free high-payout slot machine (Diamond Miner or Deity of the Sun) and takes a seat
+* Finds an available high-payout slot machine (Diamond Miner or Deity of the Sun) and takes a seat
 * Spins the slot machine for a loss
 * Spins the slot machine for a win ($2.5mil)
 * Repeats the above two steps until the daily limit is reached
