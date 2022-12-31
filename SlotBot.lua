@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.13"
+local SCRIPT_VERSION = "0.14"
 
 ---
 --- Auto-Updater Lib Install
@@ -661,7 +661,7 @@ end
 --- Menus
 ---
 
-menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit of $47.5mil. Come back tomorrow and run the script again for more.", function(on)
+menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(on)
     state.auto_spin = on
 end)
 
