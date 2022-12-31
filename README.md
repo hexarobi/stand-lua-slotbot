@@ -8,7 +8,7 @@ Automates the following steps:
 * Finds a free high-payout slot machine (Diamond Miner or Deity of the Sun) and takes a seat
 * Spins the slot machine for a loss
 * Spins the slot machine for a win ($2.5mil)
-* Repeats the above two steps until the daily limit is reached ($47.5mil)
+* Repeats the above two steps until the daily limit is reached
 * Visit Cashier to cash out chips, while keeping at least a few chips in reserve
 * Keeps track of when your daily limit has expired so you can safely run the loop again
 
