@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.11.1"
+local SCRIPT_VERSION = "0.12"
 
 ---
 --- Auto-Updater Lib Install
@@ -57,6 +57,7 @@ local config = {
     delay_between_spins_additional_random = 1000,
     delay_after_teleport_to_casino = 30000,
     max_daily_winnings = 45000000,
+    millis_in_day = 86400000,
 }
 local state = {}
 local menus = {}
@@ -174,7 +175,7 @@ end
 
 local function count_wins(spin_log)
     local num_wins = 0
-    local target_time = util.current_time_millis() - 86400000
+    local target_time = util.current_time_millis() - config.millis_in_day
     for _, spin in pairs(spin_log) do
         if spin.is_rigged and spin.time > target_time then
             num_wins = num_wins + 1
@@ -185,9 +186,9 @@ end
 
 local function calculate_daily_winnings(spin_log)
     local daily_winnings = 0
-    local target_time = util.current_time_millis() - 86400000
+    local target_time = util.current_time_millis() - config.millis_in_day
     for _, spin in pairs(spin_log) do
-        if spin.is_rigged and spin.time > target_time then
+        if spin.is_rigged and spin.time > target_time and spin.winnings > 0 then
             daily_winnings = daily_winnings + (spin.winnings or 0)
         end
     end
@@ -339,7 +340,7 @@ end
 --end
 
 local function find_first_spin()
-    local cutoff_time = util.current_time_millis() - 86400000
+    local cutoff_time = util.current_time_millis() - config.millis_in_day
     local spin_log = load_spin_log()
     for _, spin_log_item in pairs(spin_log) do
         if spin_log_item.time > cutoff_time and spin_log_item.is_rigged then
@@ -351,7 +352,7 @@ end
 local function get_safe_playtime()
     local first_spin = find_first_spin()
     if first_spin == nil then return "00:00" end
-    local countdown = first_spin.time - util.current_time_millis() + 86400000
+    local countdown = first_spin.time - util.current_time_millis() + config.millis_in_day
     if countdown > 0 then
         return disp_time(countdown / 1000)
     else
@@ -370,7 +371,7 @@ end
 
 local function refresh_next_spin_time()
     local safe_playtime = get_safe_playtime()
-    if safe_playtime then
+    if safe_playtime and safe_playtime ~= "00:00" then
         menus.next_spin_time.value = safe_playtime
     else
         menus.next_spin_time.value = "Ready for Spin!"
@@ -630,24 +631,6 @@ menus.next_spin_time = menu.readonly(menu.my_root(), "Time Until Next Spin")
 refresh_next_spin_time()
 
 ---
---- Actions Menu
----
-
-menus.actions = menu.list(menu.my_root(), "Actions", {}, "Actions executed by the auto-spin but available as optional stand-alone actions")
-menu.action(menus.actions, "Teleport to Casino", {}, "", function()
-    menu.trigger_commands("casinotp"..players.get_name(players.user()))
-end)
-menu.action(menus.actions, "Find Slot Machine", {}, "", function()
-    find_free_slot_machine()
-end)
-menu.action(menus.actions, "Cash Out Chips", {}, "", function()
-    cash_out_chips()
-end)
-menu.action(menus.actions, "Check Chips", {}, "", function()
-    util.toast(get_chip_count())
-end)
-
----
 --- Options Menu
 ---
 
@@ -655,6 +638,29 @@ local menu_options = menu.list(menu.my_root(), "Options")
 menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in a single day can be risky.", 1, 100, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
     config.max_daily_winnings = value * 1000000
 end)
+
+---
+--- Actions Menu
+---
+
+menus.actions = menu.list(menu_options, "Actions", {}, "Actions executed by the auto-spin but available as optional stand-alone actions")
+menu.action(menus.actions, "Teleport to Casino", {}, "Teleport to Casino interior", function()
+    menu.trigger_commands("casinotp"..players.get_name(players.user()))
+end)
+menu.action(menus.actions, "Acquire Chips", {}, "Automatically acquire daily limit of 50000 chips from Casino Cashier", function()
+    acquire_chips()
+end)
+menu.action(menus.actions, "Find Slot Machine", {}, "Automatically locate an unoccupied high-payout slot machine.", function()
+    find_free_slot_machine()
+end)
+menu.action(menus.actions, "Cash Out Chips", {}, "Automatically cash out chips, while keeping a few in reserve.", function()
+    cash_out_chips()
+end)
+
+---
+--- Spin Log Menu
+---
+
 local spin_log_menu_items = {}
 menus.spin_log = menu.list(menu_options, "View Spin Log", {}, "View log of previous spins", function()
     for _, spin_log_menu_item in pairs(spin_log_menu_items) do
@@ -672,7 +678,6 @@ menus.spin_log = menu.list(menu_options, "View Spin Log", {}, "View log of previ
         table.insert(spin_log_menu_items, spin_log_item_menu)
     end
 end)
-
 
 ---
 --- Meta Menu
