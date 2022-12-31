@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.11"
+local SCRIPT_VERSION = "0.11.1"
 
 ---
 --- Auto-Updater Lib Install
@@ -188,7 +188,7 @@ local function calculate_daily_winnings(spin_log)
     local target_time = util.current_time_millis() - 86400000
     for _, spin in pairs(spin_log) do
         if spin.is_rigged and spin.time > target_time then
-            daily_winnings = daily_winnings + spin.winnings
+            daily_winnings = daily_winnings + (spin.winnings or 0)
         end
     end
     return daily_winnings
