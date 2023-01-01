@@ -16,4 +16,7 @@ Warning: Avoid rigging slots if you have other used any other menus on your acco
 
 # Installation
 
-Save [the script file](https://raw.githubusercontent.com/hexarobi/stand-lua-slotbot/main/SlotBot.lua) to your `Stand/Lua Scripts` folder.
+1. Open [the SlotBot.lua file](https://raw.githubusercontent.com/hexarobi/stand-lua-slotbot/main/SlotBot.lua)
+2. Right-click and Save As... to your `Stand/Lua Scripts` folder
+3. If the file was renamed with a `.txt` extension just rename it to `SlotBot.lua`
+4. Run the script in your menu by going to `Stand > Lua Scripts > SlotBot`
