@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.14"
+local SCRIPT_VERSION = "0.15"
 
 ---
 --- Auto-Updater Lib Install
@@ -54,8 +54,8 @@ local config = {
     delay_between_button_press = 500,
     delay_sitting_at_slot_machine = 5000,
     delay_between_spins = 3000,
-    delay_between_spins_additional_random = 1000,
-    delay_after_teleport_to_casino = 30000,
+    delay_after_entering_casino = 4000,
+    default_spin_delay_time = 1000,
     max_daily_winnings = 45000000,
     millis_in_day = 86400000,
 }
@@ -448,7 +448,7 @@ local function is_slots_ready_for_spin()
 end
 
 local function acquire_chips()
-    debug_log("Getting chips")
+    debug_log("Acquiring chips")
     util.toast("Acquiring chips from Cashier")
 
     local cashier_position = {x=1116.0953, y=219.82039, z=-49.43512, h=-90}
@@ -610,7 +610,7 @@ local function bandit_tick()
     if state.auto_spin then
         local current_time = util.current_time_millis()
         if state.next_update_time == nil or current_time > state.next_update_time then
-            local delay_time = 1000
+            local delay_time = config.default_spin_delay_time
 
             if is_num_daily_wins_exceeded() then
                 debug_log("Daily win limit exceeded")
@@ -621,8 +621,9 @@ local function bandit_tick()
                     cash_out_chips()
                 end
             elseif is_player_in_casino(players.user()) and state.is_teleporting_to_casino then
+                debug_log("Teleport to Casino complete")
                 state.is_teleporting_to_casino = false
-                delay_time = 5000
+                delay_time = config.delay_after_entering_casino
             elseif state.is_teleporting_to_casino then
                 -- Do nothing but continue to wait
             elseif not is_player_in_casino(players.user()) then
@@ -678,6 +679,17 @@ local menu_options = menu.list(menu.my_root(), "Options")
 menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in a single day can be risky.", 1, 100, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
     config.max_daily_winnings = value * 1000000
     refresh_next_spin_time()
+end)
+menu.toggle(menu_options, "Debug Mode", {}, "", function(on)
+    config.debug_mode = on
+end, config.debug_mode)
+
+menus.delays = menu.list(menu_options, "Delays", {}, "Adjust pause timers after certain actions are taken")
+menu.slider(menus.delays, "Pressing a Button", {}, "The number of milliseconds to pause after pressing any button", 300, 3000, config.delay_between_button_press, 100, function(value)
+    config.delay_between_button_press = value
+end)
+menu.slider(menus.delays, "Entering Casino", {}, "The number of milliseconds to pause after entering the Casino", 500, 10000, config.delay_after_entering_casino, 100, function(value)
+    config.delay_after_entering_casino = value
 end)
 
 ---
