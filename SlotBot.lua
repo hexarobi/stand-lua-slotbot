@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.16"
+local SCRIPT_VERSION = "0.16.1"
 
 ---
 --- Auto-Updater Lib Install
@@ -304,7 +304,7 @@ end
 local CONFIG_DIR = filesystem.store_dir() .. 'SlotBot\\'
 filesystem.mkdirs(CONFIG_DIR)
 local LEGACY_SPIN_LOG_FILE = CONFIG_DIR .. "spin_log.json"
-local SPIN_LOG_FILE = CONFIG_DIR .. "spin_log_".. util.get_char_slot() .. ".json"
+local SPIN_LOG_FILE = CONFIG_DIR .. "spin_log_".. players.get_rockstar_id(players.user()) .. ".json"
 
 local function save_spin_log(spin_log)
     local file = io.open(SPIN_LOG_FILE, "wb")
