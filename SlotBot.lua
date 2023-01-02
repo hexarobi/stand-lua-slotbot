@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.16.1"
+local SCRIPT_VERSION = "0.17"
 
 ---
 --- Auto-Updater Lib Install
@@ -324,7 +324,8 @@ local function load_spin_log()
         file:close()
         local spin_log_status, spin_log = pcall(soup.json.decode, version)
         if not spin_log_status then
-            error("Could not decode spin log file")
+            util.toast("Could not decode spin log file", TOAST_ALL)
+            return {}
         end
         return spin_log
     else
@@ -367,7 +368,7 @@ local function find_earliest_rigged_spin()
     local spin_log = load_spin_log()
     for _, spin_log_item in pairs(array_reverse(spin_log)) do
         if spin_log_item.time > cutoff_time and spin_log_item.is_rigged then
-            winnings = winnings + spin_log_item.winnings
+            winnings = winnings + (spin_log_item.winnings or 0)
             if winnings > config.max_daily_winnings then
                 return spin_log_item
             end
