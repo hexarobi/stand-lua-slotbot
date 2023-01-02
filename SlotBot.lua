@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.15"
+local SCRIPT_VERSION = "0.16"
 
 ---
 --- Auto-Updater Lib Install
@@ -196,7 +196,7 @@ local function calculate_daily_winnings(spin_log)
     local daily_winnings = 0
     local target_time = util.current_time_millis() - config.millis_in_day
     for _, spin in pairs(spin_log) do
-        if spin.is_rigged and spin.time > target_time and spin.winnings > 0 then
+        if spin.is_rigged and spin.time > target_time and spin.winnings ~= nil and spin.winnings > 0 then
             daily_winnings = daily_winnings + (spin.winnings or 0)
         end
     end
@@ -303,7 +303,8 @@ end
 
 local CONFIG_DIR = filesystem.store_dir() .. 'SlotBot\\'
 filesystem.mkdirs(CONFIG_DIR)
-local SPIN_LOG_FILE = CONFIG_DIR .. "spin_log.json"
+local LEGACY_SPIN_LOG_FILE = CONFIG_DIR .. "spin_log.json"
+local SPIN_LOG_FILE = CONFIG_DIR .. "spin_log_".. util.get_char_slot() .. ".json"
 
 local function save_spin_log(spin_log)
     local file = io.open(SPIN_LOG_FILE, "wb")
@@ -314,6 +315,10 @@ end
 
 local function load_spin_log()
     local file = io.open(SPIN_LOG_FILE)
+    if not file then
+        debug_log("Trying legacy spin log file")
+        file = io.open(LEGACY_SPIN_LOG_FILE)
+    end
     if file then
         local version = file:read()
         file:close()
