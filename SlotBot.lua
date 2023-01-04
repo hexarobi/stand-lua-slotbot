@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.17"
+local SCRIPT_VERSION = "0.18"
 
 ---
 --- Auto-Updater Lib Install
@@ -38,7 +38,6 @@ local auto_update_config = {
     source_url="https://raw.githubusercontent.com/hexarobi/stand-lua-slotbot/main/SlotBot.lua",
     script_relpath=SCRIPT_RELPATH,
     verify_file_begins_with="--",
-    check_interval=604800,
 }
 auto_updater.run_auto_update(auto_update_config)
 
@@ -58,6 +57,7 @@ local config = {
     default_spin_delay_time = 1000,
     max_daily_winnings = 45000000,
     millis_in_day = 86400000,
+    seconds_in_day = 86400,
 }
 local state = {}
 local menus = {}
@@ -181,11 +181,31 @@ local function format_large_number(number)
     return minus .. int:reverse():gsub("^,", "") .. fraction
 end
 
+local function is_spin_recent(spin_log_item)
+    if spin_log_item.is_rigged then
+        if spin_log_item.timestamp == nil and spin_log_item.time ~= nil then
+            local target_time_milli = util.current_time_millis() - config.millis_in_day
+            if spin_log_item.time > target_time_milli then
+                return true
+            else
+                return false
+            end
+        elseif spin_log_item.timestamp ~= nil then
+            local target_time_seconds = util.current_unix_time_seconds() - config.seconds_in_day
+            if spin_log_item.timestamp > target_time_seconds then
+                return true
+            else
+                return false
+            end
+        end
+    end
+    return true
+end
+
 local function count_wins(spin_log)
     local num_wins = 0
-    local target_time = util.current_time_millis() - config.millis_in_day
     for _, spin in pairs(spin_log) do
-        if spin.is_rigged and spin.time > target_time then
+        if is_spin_recent(spin) then
             num_wins = num_wins + 1
         end
     end
@@ -194,9 +214,8 @@ end
 
 local function calculate_daily_winnings(spin_log)
     local daily_winnings = 0
-    local target_time = util.current_time_millis() - config.millis_in_day
     for _, spin in pairs(spin_log) do
-        if spin.is_rigged and spin.time > target_time and spin.winnings ~= nil and spin.winnings > 0 then
+        if is_spin_recent(spin) and spin.winnings ~= nil and spin.winnings > 0 then
             daily_winnings = daily_winnings + (spin.winnings or 0)
         end
     end
@@ -341,7 +360,7 @@ local function log_spin(is_rigged, spin_winnings)
     if num_wins == 0 and #spin_log > 0 then spin_log = {} end
     table.insert(spin_log, {
         is_rigged=is_rigged,
-        time=util.current_time_millis(),
+        timestamp=util.current_unix_time_seconds(),
         winnings=spin_winnings,
         log_time=os.date("%H:%M:%S")
     })
@@ -363,11 +382,10 @@ end
 --end
 
 local function find_earliest_rigged_spin()
-    local cutoff_time = util.current_time_millis() - config.millis_in_day
     local winnings = 0
     local spin_log = load_spin_log()
     for _, spin_log_item in pairs(array_reverse(spin_log)) do
-        if spin_log_item.time > cutoff_time and spin_log_item.is_rigged then
+        if is_spin_recent(spin_log_item) then
             winnings = winnings + (spin_log_item.winnings or 0)
             if winnings > config.max_daily_winnings then
                 return spin_log_item
@@ -376,22 +394,12 @@ local function find_earliest_rigged_spin()
     end
 end
 
-local function find_first_spin()
-    local cutoff_time = util.current_time_millis() - config.millis_in_day
-    local spin_log = load_spin_log()
-    for _, spin_log_item in pairs(spin_log) do
-        if spin_log_item.time > cutoff_time and spin_log_item.is_rigged then
-            return spin_log_item
-        end
-    end
-end
-
 local function get_safe_playtime()
     local first_spin = find_earliest_rigged_spin()
     if first_spin == nil then return "00:00" end
-    local countdown = first_spin.time - util.current_time_millis() + config.millis_in_day
+    local countdown = first_spin.timestamp - util.current_unix_time_seconds() + config.seconds_in_day
     if countdown > 0 then
-        return disp_time(countdown / 1000)
+        return disp_time(countdown)
     else
         return "00:00"
     end
@@ -593,12 +601,12 @@ local function spin_slots()
     -- Spin
     debug_log("Spinning slot")
     press_button(201)
-    util.yield(config.delay_between_button_press)
+    util.yield(config.delay_between_button_press * 2)
 
     debug_log("Setting slots to unrigged")
     menu.trigger_command(commands.rigslotmachines, "off")
 
-    util.yield(config.delay_between_spins - 500)
+    util.yield(config.delay_between_spins - 1000)
 
     local spin_winnings = get_chip_count() - previous_chip_count
     debug_log("Chip change "..tostring(spin_winnings))
@@ -657,10 +665,9 @@ local function bandit_tick()
 end
 
 local function next_spin_time_tick()
-    local current_time = util.current_time_millis()
-    if state.next_spin_time_update == nil or current_time > state.next_spin_time_update then
+    if state.next_spin_time_update == nil or util.current_unix_time_seconds() > state.next_spin_time_update then
         refresh_next_spin_time()
-        state.next_spin_time_update = util.current_time_millis() + 60000
+        state.next_spin_time_update = util.current_unix_time_seconds() + 60
     end
 end
 
@@ -669,6 +676,7 @@ end
 ---
 
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(on)
+    debug_log("Toggled auto-spin "..tostring(on))
     state.auto_spin = on
 end)
 
@@ -728,7 +736,7 @@ menus.spin_log = menu.list(menu_options, "View Spin Log", {}, "View log of previ
     local spin_log = load_spin_log()
     for index, spin_log_item in pairs(spin_log) do
         --local time_ago = util.current_time_millis() - spin_log_item.time
-        local time_ago = tostring(disp_time((util.current_time_millis() - spin_log_item.time) / 1000))
+        local time_ago = tostring(disp_time(util.current_unix_time_seconds() - spin_log_item.timestamp))
         local timestamp = (spin_log_item.log_time or "")
         local item = string.format("Spin #%d [%s] [%s] $%s", index, timestamp, time_ago, spin_log_item.winnings)
         local spin_log_item_menu = menu.readonly(menus.spin_log, item)
@@ -737,6 +745,12 @@ menus.spin_log = menu.list(menu_options, "View Spin Log", {}, "View log of previ
         --menu.readonly(spin_log_item_menu, "Winnings", tostring(spin_log_item.winnings))
         table.insert(spin_log_menu_items, spin_log_item_menu)
     end
+end)
+
+menu.action(menu_options, "Clear Spin log", {}, "Erase all history. Useful if a bug has broken things, but be careful to still respect the $50mil per day limit.", function()
+    save_spin_log({})
+    refresh_daily_winnings()
+    refresh_next_spin_time()
 end)
 
 ---
