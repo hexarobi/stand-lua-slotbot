@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.18"
+local SCRIPT_VERSION = "0.18.1"
 
 ---
 --- Auto-Updater Lib Install
@@ -397,7 +397,12 @@ end
 local function get_safe_playtime()
     local first_spin = find_earliest_rigged_spin()
     if first_spin == nil then return "00:00" end
-    local countdown = first_spin.timestamp - util.current_unix_time_seconds() + config.seconds_in_day
+    local countdown
+    if first_spin.timestamp == nil and first_spin.time ~= nil then
+        countdown = first_spin.time - util.current_time_millis() - config.millis_in_day
+    else
+        countdown = first_spin.timestamp - util.current_unix_time_seconds() + config.seconds_in_day
+    end
     if countdown > 0 then
         return disp_time(countdown)
     else
