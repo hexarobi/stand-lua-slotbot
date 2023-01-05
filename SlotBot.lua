@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.18.1"
+local SCRIPT_VERSION = "0.19"
 
 ---
 --- Auto-Updater Lib Install
@@ -50,6 +50,7 @@ util.require_natives(1663599433)
 local config = {
     debug_mode = false,
     test_mode = false,
+    auto_cash_out = true,
     delay_between_button_press = 500,
     delay_sitting_at_slot_machine = 5000,
     delay_between_spins = 3000,
@@ -636,7 +637,7 @@ local function bandit_tick()
                 util.toast("You've won your daily limit. Try again in "..get_safe_playtime())
                 if is_player_at_any_slot_machine() then
                     exit_slots()
-                else
+                elseif config.auto_cash_out then
                     cash_out_chips()
                 end
             elseif is_player_in_casino(players.user()) and state.is_teleporting_to_casino then
@@ -694,12 +695,15 @@ refresh_next_spin_time()
 --- Options Menu
 ---
 
-local menu_options = menu.list(menu.my_root(), "Options")
+local menu_options = menu.list(menu.my_root(), "Options", {}, "Settings to control how the the script behaves")
 menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in a single day can be risky.", 1, 100, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
     config.max_daily_winnings = value * 1000000
     refresh_next_spin_time()
 end)
-menu.toggle(menu_options, "Debug Mode", {}, "", function(on)
+menu.toggle(menu_options, "Auto Cash Out", {}, "Automatically cash out chips when done auto-spinning", function(on)
+    config.auto_cash_out = on
+end, config.auto_cash_out)
+menu.toggle(menu_options, "Debug Mode", {}, "Include additional details in Stand/Log.txt file to help debug issues with the script.", function(on)
     config.debug_mode = on
 end, config.debug_mode)
 
@@ -762,7 +766,7 @@ end)
 --- Meta Menu
 ---
 
-menus.script_meta = menu.list(menu.my_root(), "Script Meta")
+menus.script_meta = menu.list(menu.my_root(), "Script Meta", {}, "Information about the script itself")
 menu.divider(menus.script_meta, "SlotBot")
 menu.readonly(menus.script_meta, "Version", SCRIPT_VERSION)
 menu.action(menus.script_meta, "Check for Update", {}, "The script will automatically check for updates at most daily, but you can manually check using this option anytime.", function()
