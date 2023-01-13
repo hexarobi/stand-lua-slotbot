@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.19"
+local SCRIPT_VERSION = "0.20"
 
 ---
 --- Auto-Updater Lib Install
@@ -56,7 +56,7 @@ local config = {
     delay_between_spins = 3000,
     delay_after_entering_casino = 4000,
     default_spin_delay_time = 1000,
-    max_daily_winnings = 45000000,
+    max_daily_winnings = 10000000,
     millis_in_day = 86400000,
     seconds_in_day = 86400,
 }
@@ -681,9 +681,18 @@ end
 --- Menus
 ---
 
+local WARNING_MESSAGE = "WARNING! Many mod users have been recently banned. The exact cause is still unknown but any cheat that makes money (like this one) is especially at risk for being detected and banned. Please use with caution!"
+
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(on)
-    debug_log("Toggled auto-spin "..tostring(on))
-    state.auto_spin = on
+    if on then
+        menu.show_warning(menus.auto_spin, CLICK_COMMAND, WARNING_MESSAGE, function()
+            debug_log("Toggled auto-spin "..tostring(on))
+            state.auto_spin = on
+        end)
+    else
+        debug_log("Toggled auto-spin "..tostring(on))
+        state.auto_spin = on
+    end
 end)
 
 menus.daily_winnings = menu.readonly(menu.my_root(), "Daily Winnings")
