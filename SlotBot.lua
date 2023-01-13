@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.20"
+local SCRIPT_VERSION = "0.21"
 
 ---
 --- Auto-Updater Lib Install
@@ -56,6 +56,7 @@ local config = {
     delay_between_spins = 3000,
     delay_after_entering_casino = 4000,
     default_spin_delay_time = 1000,
+    loss_ratio = 2,
     max_daily_winnings = 10000000,
     millis_in_day = 86400000,
     seconds_in_day = 86400,
@@ -221,6 +222,18 @@ local function calculate_daily_winnings(spin_log)
         end
     end
     return daily_winnings
+end
+
+local function calculate_losses_since_win(spin_log)
+    local num_losses = 0
+    for _, spin_log_item in pairs(array_reverse(spin_log)) do
+        if not spin_log_item.is_rigged then
+            num_losses = num_losses + 1
+        else
+            return num_losses
+        end
+    end
+    return num_losses
 end
 
 local function disp_time(time)
@@ -430,10 +443,11 @@ local function refresh_next_spin_time()
 end
 
 local function switch_rigged_state()
-    if state.is_rigged == nil or state.is_rigged == true then
-        state.is_rigged = false
-    else
+    local spin_log = load_spin_log()
+    if calculate_losses_since_win(spin_log) >= config.loss_ratio then
         state.is_rigged = true
+    else
+        state.is_rigged = false
     end
 end
 
@@ -587,7 +601,7 @@ local function spin_slots()
         util.toast("Spinning slots to lose")
         menu.trigger_command(commands.rigslotmachines, "loss")
     end
-    util.yield(config.delay_between_button_press)
+    util.yield(config.delay_between_button_press * 2)
 
     local previous_chip_count = get_chip_count()
 
@@ -712,6 +726,9 @@ end)
 menu.toggle(menu_options, "Auto Cash Out", {}, "Automatically cash out chips when done auto-spinning", function(on)
     config.auto_cash_out = on
 end, config.auto_cash_out)
+menu.slider(menu_options, "Loss Ratio", {}, "Number of losing spins to make for every winning spin.", 1, 10, config.loss_ratio, 1, function(value)
+    config.loss_ratio = value
+end)
 menu.toggle(menu_options, "Debug Mode", {}, "Include additional details in Stand/Log.txt file to help debug issues with the script.", function(on)
     config.debug_mode = on
 end, config.debug_mode)
