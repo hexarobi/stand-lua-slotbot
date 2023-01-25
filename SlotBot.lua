@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.21"
+local SCRIPT_VERSION = "0.22"
 
 ---
 --- Auto-Updater Lib Install
@@ -51,6 +51,7 @@ local config = {
     debug_mode = false,
     test_mode = false,
     auto_cash_out = true,
+    never_rig = false,
     delay_between_button_press = 500,
     delay_sitting_at_slot_machine = 5000,
     delay_between_spins = 3000,
@@ -587,36 +588,38 @@ local function spin_slots()
 
     switch_rigged_state()
 
-    if state.is_rigged then
-        debug_log("Setting slots to win")
-        util.toast("Spinning slots to win")
-        if config.test_mode then
-            menu.trigger_command(commands.rigslotmachines, "smallwin")
-        else
-            menu.trigger_command(commands.rigslotmachines, "jackpot")
-        end
-        state.has_chips = true
-    else
-        debug_log("Setting slots to lose")
-        util.toast("Spinning slots to lose")
-        menu.trigger_command(commands.rigslotmachines, "loss")
-    end
-    util.yield(config.delay_between_button_press * 2)
-
     local previous_chip_count = get_chip_count()
 
-    -- Set Bet Amount
-    debug_log("Setting bet amount")
-    if state.is_rigged then
-        --util.toast("Max bet")
-        press_button(204)   -- TAB for Max Bet
-    else
-        --util.toast("Min bet")
-        press_button(204)   -- TAB for Max Bet
+    if not config.never_rig then
+        if state.is_rigged then
+            debug_log("Setting slots to win")
+            util.toast("Spinning slots to win")
+            if config.test_mode then
+                menu.trigger_command(commands.rigslotmachines, "smallwin")
+            else
+                menu.trigger_command(commands.rigslotmachines, "jackpot")
+            end
+            state.has_chips = true
+        else
+            debug_log("Setting slots to lose")
+            util.toast("Spinning slots to lose")
+            menu.trigger_command(commands.rigslotmachines, "loss")
+        end
         util.yield(config.delay_between_button_press * 2)
-        press_button(203)   -- Space to cycle to lowest bet
+
+        -- Set Bet Amount
+        debug_log("Setting bet amount")
+        if state.is_rigged then
+            --util.toast("Max bet")
+            press_button(204)   -- TAB for Max Bet
+        else
+            --util.toast("Min bet")
+            press_button(204)   -- TAB for Max Bet
+            util.yield(config.delay_between_button_press * 2)
+            press_button(203)   -- Space to cycle to lowest bet
+        end
+        util.yield(config.delay_between_button_press)
     end
-    util.yield(config.delay_between_button_press)
 
     -- Spin
     debug_log("Spinning slot")
@@ -729,6 +732,9 @@ end, config.auto_cash_out)
 menu.slider(menu_options, "Loss Ratio", {}, "Number of losing spins to make for every winning spin.", 1, 10, config.loss_ratio, 1, function(value)
     config.loss_ratio = value
 end)
+menu.toggle(menu_options, "Never Rig", {}, "If on, then all spins will be fair and not rigged.", function(on)
+    config.never_rig = on
+end, config.never_rig)
 menu.toggle(menu_options, "Debug Mode", {}, "Include additional details in Stand/Log.txt file to help debug issues with the script.", function(on)
     config.debug_mode = on
 end, config.debug_mode)
