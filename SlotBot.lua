@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.22"
+local SCRIPT_VERSION = "0.23"
 
 ---
 --- Auto-Updater Lib Install
@@ -58,7 +58,8 @@ local config = {
     delay_after_entering_casino = 4000,
     default_spin_delay_time = 1000,
     loss_ratio = 2,
-    max_daily_winnings = 10000000,
+    max_allowed_daily_winnings = 45,
+    max_daily_winnings = 40000000,
     millis_in_day = 86400000,
     seconds_in_day = 86400,
 }
@@ -314,7 +315,7 @@ local function find_free_slot_machine()
 
         -- E to sit down
         PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 51, 1)
-        util.yield(config.delay_between_button_press)
+        util.yield(config.delay_between_button_press * 2)
 
         -- Enter to excuse help message
         PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 201, 1)
@@ -624,7 +625,7 @@ local function spin_slots()
     -- Spin
     debug_log("Spinning slot")
     press_button(201)
-    util.yield(config.delay_between_button_press * 2)
+    util.yield(config.delay_between_button_press * 4)
 
     debug_log("Setting slots to unrigged")
     menu.trigger_command(commands.rigslotmachines, "off")
@@ -701,15 +702,15 @@ end
 local WARNING_MESSAGE = "WARNING! Many mod users have been recently banned. The exact cause is still unknown but any cheat that makes money (like this one) is especially at risk for being detected and banned. Please use with caution!"
 
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(on)
-    if on then
-        menu.show_warning(menus.auto_spin, CLICK_COMMAND, WARNING_MESSAGE, function()
-            debug_log("Toggled auto-spin "..tostring(on))
-            state.auto_spin = on
-        end)
-    else
+    --if on then
+    --    menu.show_warning(menus.auto_spin, CLICK_COMMAND, WARNING_MESSAGE, function()
+    --        debug_log("Toggled auto-spin "..tostring(on))
+    --        state.auto_spin = on
+    --    end)
+    --else
         debug_log("Toggled auto-spin "..tostring(on))
         state.auto_spin = on
-    end
+    --end
 end)
 
 menus.daily_winnings = menu.readonly(menu.my_root(), "Daily Winnings")
@@ -722,7 +723,7 @@ refresh_next_spin_time()
 ---
 
 local menu_options = menu.list(menu.my_root(), "Options", {}, "Settings to control how the the script behaves")
-menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in a single day can be risky.", 1, 100, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
+menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in a single day can be risky.", 1, config.max_allowed_daily_winnings, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
     config.max_daily_winnings = value * 1000000
     refresh_next_spin_time()
 end)
