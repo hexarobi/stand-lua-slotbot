@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.23"
+local SCRIPT_VERSION = "0.24"
 
 ---
 --- Auto-Updater Lib Install
@@ -307,7 +307,7 @@ local function find_free_slot_machine()
     debug_log("Finding available slot machine")
     state.is_finding_slot_machine = true
     for _, slot_machine_position in pairs(slot_machine_positions) do
-        if not state.auto_spin then return end
+        if state.is_finding_slot_machine == false then return end
         local pos = slot_machine_position.standing
         ENTITY.SET_ENTITY_COORDS(players.user_ped(), pos.x, pos.y, pos.z)
         ENTITY.SET_ENTITY_HEADING(players.user_ped(), pos.h)
@@ -701,16 +701,12 @@ end
 
 local WARNING_MESSAGE = "WARNING! Many mod users have been recently banned. The exact cause is still unknown but any cheat that makes money (like this one) is especially at risk for being detected and banned. Please use with caution!"
 
-menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(on)
-    --if on then
-    --    menu.show_warning(menus.auto_spin, CLICK_COMMAND, WARNING_MESSAGE, function()
-    --        debug_log("Toggled auto-spin "..tostring(on))
-    --        state.auto_spin = on
-    --    end)
-    --else
-        debug_log("Toggled auto-spin "..tostring(on))
-        state.auto_spin = on
-    --end
+menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(toggle)
+    debug_log("Toggled auto-spin "..tostring(toggle))
+    state.auto_spin = toggle
+    if not toggle then
+        state.is_finding_slot_machine = false
+    end
 end)
 
 menus.daily_winnings = menu.readonly(menu.my_root(), "Daily Winnings")
