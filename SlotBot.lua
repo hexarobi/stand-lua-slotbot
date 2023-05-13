@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.24r"
+local SCRIPT_VERSION = "0.25r"
 
 ---
 --- Dependencies and Data
@@ -283,7 +283,7 @@ local function find_free_slot_machine()
         PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 201, 1)
         util.yield(config.delay_sitting_at_slot_machine)
 
-        if is_player_near_slot_machine(slot_machine_position.seated, 0.3) then
+        if is_player_at_any_slot_machine() then
             debug_log("Found available slot machine")
             util.toast("Slot machine found")
             state.is_finding_slot_machine = false
@@ -661,7 +661,7 @@ end
 --- Menus
 ---
 
-local WARNING_MESSAGE = "WARNING! Many mod users have been recently banned. The exact cause is still unknown but any cheat that makes money (like this one) is especially at risk for being detected and banned. Please use with caution!"
+menus.warning = menu.readonly(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account. https://stand.gg/help/money")
 
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(toggle)
     debug_log("Toggled auto-spin "..tostring(toggle))
