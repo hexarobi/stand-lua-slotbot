@@ -699,7 +699,7 @@ end
 --- Menus
 ---
 
-local WARNING_MESSAGE = "WARNING! Many mod users have been recently banned. The exact cause is still unknown but any cheat that makes money (like this one) is especially at risk for being detected and banned. Please use with caution!"
+menus.warning = menu.readonly(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account. https://stand.gg/help/money")
 
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(toggle)
     debug_log("Toggled auto-spin "..tostring(toggle))
