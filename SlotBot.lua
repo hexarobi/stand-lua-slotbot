@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.24"
+local SCRIPT_VERSION = "0.25"
 
 ---
 --- Auto-Updater Lib Install
@@ -321,7 +321,7 @@ local function find_free_slot_machine()
         PAD.SET_CONTROL_VALUE_NEXT_FRAME(0, 201, 1)
         util.yield(config.delay_sitting_at_slot_machine)
 
-        if is_player_near_slot_machine(slot_machine_position.seated, 0.3) then
+        if is_player_at_any_slot_machine() then
             debug_log("Found available slot machine")
             util.toast("Slot machine found")
             state.is_finding_slot_machine = false
