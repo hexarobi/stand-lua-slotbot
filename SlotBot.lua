@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.25r"
+local SCRIPT_VERSION = "0.26r"
 
 ---
 --- Dependencies and Data
@@ -14,6 +14,7 @@ local config = {
     test_mode = false,
     auto_cash_out = true,
     never_rig = false,
+    pull_handle_to_spin = true,
     delay_between_button_press = 500,
     delay_sitting_at_slot_machine = 5000,
     delay_between_spins = 3000,
@@ -51,6 +52,10 @@ local slot_machine_positions = {
     {
         seated={x=1113.66, y=238.81334, z=-50.0909},
         standing={x=1113.8134, y=238.09317, z=-49.840786, h=0}
+    },
+    {
+        seated={x=1134.70, y=258.20, z=-51.29},
+        standing={x=1134.9258, y=258.79953, z=-51.040813, h=168}
     },
     {
         seated={x=1139.4238, y=250.89787, z=-51.2909},
@@ -112,7 +117,9 @@ local function STAT_GET_INT(Stat)
 end
 
 local function get_chip_count()
-    return STAT_GET_INT("CASINO_CHIPS")
+    local chip_count = STAT_GET_INT("CASINO_CHIPS")
+    --util.toast("Getting chip count "..chip_count, TOAST_ALL)
+    return chip_count
 end
 
 local function debug_log(message)
@@ -186,6 +193,16 @@ local function calculate_daily_winnings(spin_log)
         end
     end
     return daily_winnings
+end
+
+local function calculate_daily_losses(spin_log)
+    local daily_losses = 0
+    for _, spin in pairs(spin_log) do
+        if is_spin_recent(spin) and spin.chips_bet ~= nil and spin.chips_bet > 0 then
+            daily_losses = daily_losses + (spin.chips_bet or 0)
+        end
+    end
+    return daily_losses
 end
 
 local function calculate_losses_since_win(spin_log)
@@ -267,6 +284,11 @@ end
 local function find_free_slot_machine()
     util.toast("Finding available slot machine")
     debug_log("Finding available slot machine")
+    if is_player_at_any_slot_machine() then
+        debug_log("Already at slot machine")
+        util.toast("Slot machine found")
+        return true
+    end
     state.is_finding_slot_machine = true
     for _, slot_machine_position in pairs(slot_machine_positions) do
         if state.is_finding_slot_machine == false then return end
@@ -330,7 +352,7 @@ local function load_spin_log()
     end
 end
 
-local function log_spin(is_rigged, spin_winnings)
+local function log_spin(is_rigged, spin_winnings, chips_bet)
     debug_log("Logging spin")
     local spin_log = load_spin_log()
     local num_wins = count_wins(spin_log)
@@ -340,6 +362,7 @@ local function log_spin(is_rigged, spin_winnings)
         is_rigged=is_rigged,
         timestamp=util.current_unix_time_seconds(),
         winnings=spin_winnings,
+        chips_bet=chips_bet,
         log_time=os.date("%H:%M:%S")
     })
     save_spin_log(spin_log)
@@ -349,9 +372,12 @@ end
 --- Functions
 ---
 
-local function get_daily_winnings()
+local function get_daily_winnings_and_losses()
     local spin_log = load_spin_log()
-    return calculate_daily_winnings(spin_log)
+    return {
+        winnings=calculate_daily_winnings(spin_log),
+        losses=calculate_daily_losses(spin_log),
+    }
 end
 
 --local function get_num_wins_past_day()
@@ -389,11 +415,14 @@ local function get_safe_playtime()
 end
 
 local function is_num_daily_wins_exceeded()
-    return get_daily_winnings() >= config.max_daily_winnings
+    return get_daily_winnings_and_losses().winnings >= config.max_daily_winnings
 end
 
 local function refresh_daily_winnings()
-    menus.daily_winnings.value = "$" .. format_large_number(get_daily_winnings())
+    local daily_winnings_and_losses = get_daily_winnings_and_losses()
+    local net_winnings = daily_winnings_and_losses.winnings - daily_winnings_and_losses.losses
+    menus.daily_winnings.value = "$" .. format_large_number(daily_winnings_and_losses.winnings)
+    menus.daily_winnings.help_text = "In the past 24 hours\nWon $" .. format_large_number(daily_winnings_and_losses.winnings) .. "\nBet $" .. format_large_number(daily_winnings_and_losses.losses) .. "\nNet $"..format_large_number(net_winnings)
     debug_log("Refreshed daily winning to "..menus.daily_winnings.value)
 end
 
@@ -542,6 +571,14 @@ end
 --- Spin Slots
 ---
 
+local function get_spin_button()
+    if config.pull_handle_to_spin then
+        return 208   -- Handle
+    else
+        return 201   -- Button
+    end
+end
+
 local function spin_slots()
 
     if not is_slots_ready_for_spin() then
@@ -586,8 +623,16 @@ local function spin_slots()
 
     -- Spin
     debug_log("Spinning slot")
-    press_button(201)
-    util.yield(config.delay_between_button_press * 4)
+    press_button(get_spin_button())
+    util.yield(config.delay_between_button_press * 1)
+    -- Dont subtract the cost of bets from winnings
+    local current_chips_count = get_chip_count()
+    local chips_bet = previous_chip_count - current_chips_count
+    -- If the calculated bet is negative then something went wrong and the winnings are included so don't reset count
+    if chips_bet > 0 then
+        previous_chip_count = current_chips_count
+    end
+    util.yield(config.delay_between_button_press * 3)
 
     debug_log("Setting slots to unrigged")
     menu.trigger_command(commands.rigslotmachines, "off")
@@ -597,7 +642,7 @@ local function spin_slots()
     local spin_winnings = get_chip_count() - previous_chip_count
     debug_log("Chip change "..tostring(spin_winnings))
 
-    log_spin(state.is_rigged, spin_winnings)
+    log_spin(state.is_rigged, spin_winnings, chips_bet)
     refresh_daily_winnings()
     refresh_next_spin_time()
 end
@@ -661,9 +706,9 @@ end
 --- Menus
 ---
 
-menus.warning = menu.readonly(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account. https://stand.gg/help/money")
+menus.warning = menu.hyperlink(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account.", "https://stand.gg/help/money")
 
-menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Will teleport to Casino and then a high-payout slot machine. Once seated, it will auto-spin the slots, alternating between winning and losing to avoid detection until reaching the daily limit. Come back tomorrow and run the script again for more.", function(toggle)
+menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Teleport into Casino, and find a seat at an available high-payout slot machine. Spin for a couple of losses, then spin for a win. Repeat the previous step until the daily limit is reached. Finally, visit cashier to cash out chips. Wait 24 hours to do it again.", function(toggle)
     debug_log("Toggled auto-spin "..tostring(toggle))
     state.auto_spin = toggle
     if not toggle then
@@ -681,7 +726,7 @@ refresh_next_spin_time()
 ---
 
 local menu_options = menu.list(menu.my_root(), "Options", {}, "Settings to control how the the script behaves")
-menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in a single day can be risky.", 1, config.max_allowed_daily_winnings, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
+menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in total from Casino within a 24 hour period can result in a ban.", 1, config.max_allowed_daily_winnings, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
     config.max_daily_winnings = value * 1000000
     refresh_next_spin_time()
 end)
@@ -691,6 +736,9 @@ end, config.auto_cash_out)
 menu.slider(menu_options, "Loss Ratio", {}, "Number of losing spins to make for every winning spin.", 1, 10, config.loss_ratio, 1, function(value)
     config.loss_ratio = value
 end)
+menu.toggle(menu_options, "Pull Handle to Spin", {}, "When auto-spinning slots, should your character use the large handle, or the green SPIN button. Just for looks, no difference in payout.", function(on)
+    config.pull_handle_to_spin = on
+end, config.pull_handle_to_spin)
 menu.toggle(menu_options, "Never Rig", {}, "If on, then all spins will be fair and not rigged.", function(on)
     config.never_rig = on
 end, config.never_rig)
@@ -731,14 +779,19 @@ end)
 local spin_log_menu_items = {}
 menus.spin_log = menu.list(menu_options, "View Spin Log", {}, "View log of previous spins", function()
     for _, spin_log_menu_item in pairs(spin_log_menu_items) do
-        menu.delete(spin_log_menu_item)
+        if menu.is_ref_valid(spin_log_menu_item) then
+            menu.delete(spin_log_menu_item)
+        end
     end
     local spin_log = load_spin_log()
     for index, spin_log_item in pairs(spin_log) do
         --local time_ago = util.current_time_millis() - spin_log_item.time
         local time_ago = tostring(disp_time(util.current_unix_time_seconds() - spin_log_item.timestamp))
         local timestamp = (spin_log_item.log_time or "")
-        local item = string.format("Spin #%d [%s] [%s] $%s", index, timestamp, time_ago, spin_log_item.winnings)
+        if spin_log_item.chips_bet == nil then
+            spin_log_item.chips_bet = "-"
+        end
+        local item = string.format("#%d [%s] Won $%s (on $%s)", index, timestamp, spin_log_item.winnings, spin_log_item.chips_bet)
         local spin_log_item_menu = menu.readonly(menus.spin_log, item)
         --menu.readonly(spin_log_item_menu, "Time Ago", tostring(disp_time(time_ago / 1000)))
         ----menu.readonly(spin_log_item_menu, "Is Rigged", tostring(spin_log_item.is_rigged))
@@ -754,12 +807,18 @@ menu.action(menu_options, "Clear Spin log", {}, "Erase all history. Useful if a 
 end)
 
 ---
---- Meta Menu
+--- About Menu
 ---
 
-menus.script_meta = menu.list(menu.my_root(), "Script Meta", {}, "Information about the script itself")
+menus.script_meta = menu.list(menu.my_root(), "About SlotBot", {}, "Information about the script itself")
 menu.divider(menus.script_meta, "SlotBot")
 menu.readonly(menus.script_meta, "Version", SCRIPT_VERSION)
+menu.action(menus.script_meta, "Check for Update", {}, "The script will automatically check for updates at most daily, but you can manually check using this option anytime.", function()
+    auto_update_config.check_interval = 0
+    if auto_updater.run_auto_update(auto_update_config) then
+        util.toast("No updates found")
+    end
+end)
 menu.hyperlink(menus.script_meta, "Github Source", "https://github.com/hexarobi/stand-lua-slotbot", "View source files on Github")
 menu.hyperlink(menus.script_meta, "Discord", "https://discord.gg/2u5HbHPB9y", "Open Discord Server")
 
