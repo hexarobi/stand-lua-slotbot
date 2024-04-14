@@ -706,7 +706,7 @@ end
 --- Menus
 ---
 menus.warning = menu.readonly(menu.my_root(), "DISABLED: Stand has disabled rigging of slots out of caution due to a recent spike in bans. This bot can only play fair slots until that option is re-enabled. 2024-04-12")
---menus.warning = menu.hyperlink(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account.", "https://stand.gg/help/money")
+menus.warning = menu.hyperlink(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account.", "https://stand.gg/help/money")
 
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Teleport into Casino, and find a seat at an available high-payout slot machine. Spin for a couple of losses, then spin for a win. Repeat the previous step until the daily limit is reached. Finally, visit cashier to cash out chips. Wait 24 hours to do it again.", function(toggle)
     debug_log("Toggled auto-spin "..tostring(toggle))
