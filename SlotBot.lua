@@ -1,34 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.26"
-
----
---- Auto-Updater Lib Install
----
-
--- Auto Updater from https://github.com/hexarobi/stand-lua-auto-updater
-local status, auto_updater = pcall(require, "auto-updater")
-if not status then
-    local auto_update_complete = nil util.toast("Installing auto-updater...", TOAST_ALL)
-    async_http.init("raw.githubusercontent.com", "/hexarobi/stand-lua-auto-updater/main/auto-updater.lua",
-            function(result, headers, status_code)
-                local function parse_auto_update_result(result, headers, status_code)
-                    local error_prefix = "Error downloading auto-updater: "
-                    if status_code ~= 200 then util.toast(error_prefix..status_code, TOAST_ALL) return false end
-                    if not result or result == "" then util.toast(error_prefix.."Found empty file.", TOAST_ALL) return false end
-                    filesystem.mkdir(filesystem.scripts_dir() .. "lib")
-                    local file = io.open(filesystem.scripts_dir() .. "lib\\auto-updater.lua", "wb")
-                    if file == nil then util.toast(error_prefix.."Could not open file for writing.", TOAST_ALL) return false end
-                    file:write(result) file:close() util.toast("Successfully installed auto-updater lib", TOAST_ALL) return true
-                end
-                auto_update_complete = parse_auto_update_result(result, headers, status_code)
-            end, function() util.toast("Error downloading auto-updater lib. Update failed to download.", TOAST_ALL) end)
-    async_http.dispatch() local i = 1 while (auto_update_complete == nil and i < 40) do util.yield(250) i = i + 1 end
-    if auto_update_complete == nil then error("Error downloading auto-updater lib. HTTP Request timeout") end
-    auto_updater = require("auto-updater")
-end
-if auto_updater == true then error("Invalid auto-updater lib. Please delete your Stand/Lua Scripts/lib/auto-updater.lua and try again") end
+local SCRIPT_VERSION = "0.27"
 
 ---
 --- Auto Updater
@@ -39,7 +12,12 @@ local auto_update_config = {
     script_relpath=SCRIPT_RELPATH,
     verify_file_begins_with="--",
 }
-auto_updater.run_auto_update(auto_update_config)
+
+util.ensure_package_is_installed("lua/auto-updater")
+local auto_updater = require("auto-updater")
+if auto_updater == true then
+    auto_updater.run_auto_update(auto_update_config)
+end
 
 ---
 --- Dependencies and Data
@@ -743,8 +721,8 @@ end
 ---
 --- Menus
 ---
-
-menus.warning = menu.hyperlink(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account.", "https://stand.gg/help/money")
+menus.warning = menu.readonly(menu.my_root(), "DISABLED: Stand has disabled rigging of slots out of caution due to a recent spike in bans. This bot can only play fair slots until that option is re-enabled. 2024-04-12")
+--menus.warning = menu.hyperlink(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account.", "https://stand.gg/help/money")
 
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Teleport into Casino, and find a seat at an available high-payout slot machine. Spin for a couple of losses, then spin for a win. Repeat the previous step until the daily limit is reached. Finally, visit cashier to cash out chips. Wait 24 hours to do it again.", function(toggle)
     debug_log("Toggled auto-spin "..tostring(toggle))
