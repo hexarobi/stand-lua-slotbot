@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.27r"
+local SCRIPT_VERSION = "0.28.2r"
 
 ---
 --- Dependencies and Data
@@ -21,8 +21,8 @@ local config = {
     delay_after_entering_casino = 4000,
     default_spin_delay_time = 1000,
     loss_ratio = 2,
-    max_allowed_daily_winnings = 45,
-    max_daily_winnings = 40000000,
+    max_allowed_daily_winnings = 10,
+    max_daily_winnings = 10000000,
     millis_in_day = 86400000,
     seconds_in_day = 86400,
 }
@@ -705,7 +705,7 @@ end
 ---
 --- Menus
 ---
-menus.warning = menu.readonly(menu.my_root(), "DISABLED: Stand has disabled rigging of slots out of caution due to a recent spike in bans. This bot can only play fair slots until that option is re-enabled. 2024-04-12")
+--menus.warning = menu.readonly(menu.my_root(), "DISABLED: Stand has disabled rigging of slots out of caution due to a recent spike in bans. This bot can only play fair slots until that option is re-enabled. 2024-04-12")
 menus.warning = menu.hyperlink(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account.", "https://stand.gg/help/money")
 
 menus.auto_spin = menu.toggle(menu.my_root(), "Auto-Spin", {}, "Teleport into Casino, and find a seat at an available high-payout slot machine. Spin for a couple of losses, then spin for a win. Repeat the previous step until the daily limit is reached. Finally, visit cashier to cash out chips. Wait 24 hours to do it again.", function(toggle)
@@ -726,7 +726,7 @@ refresh_next_spin_time()
 ---
 
 local menu_options = menu.list(menu.my_root(), "Options", {}, "Settings to control how the the script behaves")
-menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $50mil in total from Casino within a 24 hour period can result in a ban.", 1, config.max_allowed_daily_winnings, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
+menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $10mil in total from Casino within a 24 hour period can result in a ban.", 1, config.max_allowed_daily_winnings, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
     config.max_daily_winnings = value * 1000000
     refresh_next_spin_time()
 end)
