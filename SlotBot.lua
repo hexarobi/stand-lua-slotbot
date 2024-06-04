@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.28.1"
+local SCRIPT_VERSION = "0.28.2"
 
 ---
 --- Auto Updater
@@ -37,7 +37,7 @@ local config = {
     delay_after_entering_casino = 4000,
     default_spin_delay_time = 1000,
     loss_ratio = 2,
-    max_allowed_daily_winnings = 45,
+    max_allowed_daily_winnings = 10,
     max_daily_winnings = 10000000,
     millis_in_day = 86400000,
     seconds_in_day = 86400,
