@@ -1,7 +1,7 @@
 -- SlotBot
 -- by Hexarobi
 
-local SCRIPT_VERSION = "0.28.2"
+local SCRIPT_VERSION = "0.28.3"
 
 ---
 --- Auto Updater
@@ -24,6 +24,9 @@ end
 ---
 
 util.require_natives(1663599433)
+local crypto = require("crypto")
+local STAND_SLOTS_THRESHOLD = util.get_tunable_int(crypto.joaat("slots threshold"))
+local STAND_SLOTS_THRESHOLD_HELP = util.get_tunable_int(crypto.joaat("slots threshold help text"))
 
 local config = {
     debug_mode = false,
@@ -37,8 +40,8 @@ local config = {
     delay_after_entering_casino = 4000,
     default_spin_delay_time = 1000,
     loss_ratio = 2,
-    max_allowed_daily_winnings = 10,
-    max_daily_winnings = 10000000,
+    max_allowed_daily_winnings = STAND_SLOTS_THRESHOLD / 1000000,
+    max_daily_winnings = STAND_SLOTS_THRESHOLD,
     millis_in_day = 86400000,
     seconds_in_day = 86400,
 }
@@ -721,6 +724,7 @@ end
 ---
 --- Menus
 ---
+
 --menus.warning = menu.readonly(menu.my_root(), "DISABLED: Stand has disabled rigging of slots out of caution due to a recent spike in bans. This bot can only play fair slots until that option is re-enabled. 2024-04-12")
 menus.warning = menu.hyperlink(menu.my_root(), "WARNING: Do not use this script if your account has anti-cheat flags, which may be present if you have ever used any other menus on your account.", "https://stand.gg/help/money")
 
@@ -742,7 +746,7 @@ refresh_next_spin_time()
 ---
 
 local menu_options = menu.list(menu.my_root(), "Options", {}, "Settings to control how the the script behaves")
-menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than $10mil in total from Casino within a 24 hour period can result in a ban.", 1, config.max_allowed_daily_winnings, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
+menu.slider(menu_options, "Target Daily Winnings (In Millions)", {}, "Set the target amount to win in a 24 hour period. Winning more than "..STAND_SLOTS_THRESHOLD_HELP.." in total from Casino within a 24 hour period can result in a ban.", 1, config.max_allowed_daily_winnings, math.floor(config.max_daily_winnings / 1000000), 1, function(value)
     config.max_daily_winnings = value * 1000000
     refresh_next_spin_time()
 end)
